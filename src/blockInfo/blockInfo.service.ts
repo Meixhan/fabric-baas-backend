@@ -11,12 +11,33 @@ export class BlockInfoService {
     @InjectModel('BlockInfo') private readonly blockInfoModel: Model<BlockInfo>
   ) {}
 
-  async getAllBlocks(): Promise<any> {
-    return await this.blockInfoModel.find().sort({ createdAt: -1 });
+  async getAllBlocks(
+    pageNum: number,
+    pageSize: number
+  ): Promise<{ totalDocs: number; list: BlockInfo[] }> {
+    const data: BlockInfo[] = await this.blockInfoModel
+      .find()
+      .skip((pageNum - 1) * pageSize)
+      .limit(pageSize)
+      .sort({ createdAt: -1 });
+    const count: number = await this.blockInfoModel.countDocuments();
+    return { totalDocs: count, list: data };
+    // return await this.blockInfoModel.find().sort({ createdAt: -1 });
+  }
+
+  async getBlock(
+    blockHash: string
+  ): Promise<{ totalDocs: number; list: BlockInfo[] }> {
+    const list = [];
+    const data = await this.blockInfoModel.findOne({ blockHash: blockHash });
+    list.push(data);
+    const count: number = 1;
+    return { totalDocs: count, list: list };
   }
 
   async getBlockInfo(blockHash: string): Promise<BlockInfo> {
-    return await this.blockInfoModel.findOne({ blockHash: blockHash });
+    const data = await this.blockInfoModel.findOne({ blockHash: blockHash });
+    return data;
   }
 
   async getMissingBlockInfoInRange(

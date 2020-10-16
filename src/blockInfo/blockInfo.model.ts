@@ -5,11 +5,11 @@ export interface BlockInfo {
   number: number;
   dataHash: string;
   previousHash: string;
-  txCount: number;
+  txCount: number;//交易数量
   blockHash: string;
   prevBlockHash: string;
   blockSize: string;
-  channelGenesisHash: string;
+  channelGenesisHash: string;//区块哈希是blockHash 创世区块hash 生成时间是createdAt
 }
 
 export const BlockInfoSchema = new mongoose.Schema(

@@ -103,7 +103,7 @@ export class FabricService implements OnModuleInit {
         channel_genesis_hash
       );
 
-      if (results) {
+      if (results.length) {
         for (const missingId of results) {
           // Get block by number
           const block = (await this.client.fabricGateway.queryBlock(

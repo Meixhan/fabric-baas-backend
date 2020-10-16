@@ -9,6 +9,7 @@ import {
   UsePipes,
   ValidationPipe
 } from '@nestjs/common';
+import { query } from 'winston';
 import { BlockInfo, BlockRange } from './blockInfo.model';
 import { BlockInfoService } from './blockInfo.service';
 
@@ -18,15 +19,21 @@ export class BlockInfoController {
 
   constructor(private readonly blockInfoService: BlockInfoService) {}
 
-  @Get('/allBlocks')
-  getAllBlocks(): Promise<any> {
-    return this.blockInfoService.getAllBlocks();
-  }
-
-  @Get('/:blockHash')
-  getBlockInfo(@Param('blockHash') blockHash: string): Promise<BlockInfo> {
+  @Post('/allBlocks')
+  getAllBlocks(
+    @Body() pageInfo
+  ): Promise<{ totalDocs: number; list: BlockInfo[] }> {
+    const pageNum = pageInfo.parameters.pageNum;
+    const pageSize = pageInfo.parameters.pageSize;
+    const blockHash = pageInfo.parameters.blockHash;
+    this.logger.log(`received pageNum = ${pageNum}`);
+    this.logger.log(`received pageSize = ${pageSize}`);
     this.logger.log(`received blockHash = ${blockHash}`);
-    return this.blockInfoService.getBlockInfo(blockHash);
+    if (blockHash === '') {
+      return this.blockInfoService.getAllBlocks(pageNum, pageSize);
+    } else {
+      return this.blockInfoService.getBlock(blockHash);
+    }
   }
 
   @Get()
@@ -42,6 +49,13 @@ export class BlockInfoController {
       query.high,
       query.channelGenesisHash
     );
+  }
+
+  @Get('/blockDetail')
+  getBlockInfo(@Query() query): Promise<BlockInfo> {
+    const blockHash = query.blockHash;
+    this.logger.log(`received blockHash = ${blockHash}`);
+    return this.blockInfoService.getBlockInfo(blockHash);
   }
 
   @Post('/post')
