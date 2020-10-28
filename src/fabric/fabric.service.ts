@@ -6,9 +6,13 @@ import { FabricClient } from './client/fabric/FabricClient';
 import { FabricConfig } from './client/fabric/FabricConfig';
 import { createFabricClient } from './client/fabric/utils/FabricUtils';
 import { Block } from './model/block.model';
-import { BlockInfoService } from 'src/blockInfo/blockInfo.service';
+import { BlockInfoService } from 'src/block-info/block-info.service';
+import { TransactionService } from 'src/transaction/transaction.service';
 import { Semaphore } from 'await-semaphore';
-import { convertBlockToDBItem } from './converter/blockConverters';
+import {
+  convertBlockToDBItem,
+  convertTransactionToDBItem
+} from './converter/blockConverters';
 
 const fs = require('fs-extra');
 const config_path = path.resolve(__dirname, './config.json');
@@ -33,7 +37,10 @@ export class FabricService implements OnModuleInit {
   blocksSyncTime: number;
   network_config: object;
 
-  constructor(private readonly blockInfoService: BlockInfoService) {
+  constructor(
+    private readonly blockInfoService: BlockInfoService,
+    private readonly transactionService: TransactionService
+  ) {
     this.network_id = null;
     this.network_name = null;
     this.client = null;
@@ -78,9 +85,8 @@ export class FabricService implements OnModuleInit {
     this.logger.log(block.header);
     return block;
   }
-
   // TODO change it to minute
-  @Cron(CronExpression.EVERY_MINUTE)
+  @Cron(CronExpression.EVERY_30_SECONDS)
   async syncFromFabricNetwork() {
     let release = null;
     try {
@@ -97,13 +103,14 @@ export class FabricService implements OnModuleInit {
       const blockHeight = parseInt(channelInfo.height.low) - 1;
       // Query missing blocks from DB
       // TODO fetch the latest horizon
+      const tip = await this.blockInfoService.getTip(channel_genesis_hash);
+      this.logger.log('tip:' + tip);
       const results = await this.blockInfoService.getMissingBlockInfoInRange(
-        0,
+        tip,
         blockHeight,
         channel_genesis_hash
       );
-
-      if (results) {
+      if (results && results.length) {
         for (const missingId of results) {
           // Get block by number
           const block = (await this.client.fabricGateway.queryBlock(
@@ -112,14 +119,37 @@ export class FabricService implements OnModuleInit {
           )) as Block;
           if (block) {
             //   await this.processBlockEvent(client, block);
-            this.logger.log('block:' + JSON.stringify(block.header));
+            this.logger.debug('block:' + JSON.stringify(block.header));
             // TODO process and save the block
+            // get the latest block hash
+            const prev_block_hash = await this.blockInfoService.getLatestBlockHash(
+              channel_genesis_hash
+            );
+
             this.logger.log('saving the block');
-            convertBlockToDBItem(block, channel_genesis_hash).then(data => {
+            convertBlockToDBItem(
+              block,
+              channel_genesis_hash,
+              prev_block_hash
+            ).then(data => {
               this.blockInfoService.create(data);
+            });
+
+            this.logger.log('retrieving block data:');
+            convertTransactionToDBItem(block).then(data => {
+              this.logger.log(data);
+              if (data.length) {
+                this.transactionService.saveTransaction(data);
+                this.logger.log('transactions saved');
+              }
             });
           }
         }
+        await this.blockInfoService.updateTip(
+          channel_genesis_hash,
+          tip,
+          blockHeight
+        );
       } else {
         this.logger.debug(`missing blocks not found for ${channel_name}`);
       }

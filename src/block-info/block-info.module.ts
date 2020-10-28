@@ -1,8 +1,8 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
-import { BlockInfoController } from './blockInfo.controller';
-import { BlockInfoSchema } from './blockInfo.model';
-import { BlockInfoService } from './blockInfo.service';
+import { BlockInfoController } from './block-info.controller';
+import { BlockInfoSchema } from './block-info.schema';
+import { BlockInfoService } from './block-info.service';
 
 @Module({
   imports: [
